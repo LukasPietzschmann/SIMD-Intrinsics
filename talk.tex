@@ -1,0 +1,964 @@
+\PassOptionsToPackage{table}{xcolor}
+\documentclass[aspectratio=169, usepdftitle=false, handout]{beamer}
+
+\usepackage[english, secslide, subsecslide, coloraccent=darkmaroon]{beamerthemeawesome}
+
+\addbibresource{refs.bib}
+
+\usepackage{emoji}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepackage[
+	duration=20,
+	enduserslide=20,
+	hidenotes
+]{pdfpc}
+\newcommand<>{\talknote}[1]{\only#2{\pdfpcnote{- #1}\relax}}
+
+\usepackage{tikzlings-chickens}
+\usepackage{tikzlings-koalas}
+\usepackage{tikzducks}
+
+\setminted{
+	numbers=none,
+	frame=none
+}
+\usemintedstyle{stata}
+
+\title[SIMD]{SIMD}
+\author[Lukas Pietzschmann]{Lukas Pietzschmann}
+\subtitle{Single instruction, multiple data}
+% \subtitle{Synchronized Intergalactic\\Marshmallow Dispensers}
+\email{lukas.pietzschmann@uni-ulm.de}
+\institute{Institute of Software Engineering and\\Programming Languages\\Institute of Distributed Systems}
+\uni{University of Ulm}
+\location{Ulm}
+\date{07/04/2023}
+\background{background.png}
+
+\begin{document}
+
+\maketitle
+
+\section{Motivation}
+\begin{frame}[fragile]
+	\frametitle{How not to do it}
+	\talknote{Sprungvorhersage ein mal falsch (25\%)}
+	\talknote{Rufen wir das oft auf sind 25\% signifikant}
+	\talknote{Wir hätten 4 oder 8 floats multiplizieren können}
+	\begin{columns}[c]
+		\begin{column}{0.45\textwidth}
+			\begin{minted}{c}
+				void mul4(float* arr) {
+					for(int i=0; i < 4; ++i) {
+						const float f = arr[i];
+						arr[i] = f * f;
+					}
+				}
+			\end{minted}
+		\end{column}
+		\begin{column}{0.45\textwidth}
+			\begin{block}[Why is it that bad?]
+				\begin{itemize}
+					\item<2-> Short loops are bad
+						\begin{itemize}
+							\item Branch prediction will be wrong often
+						\end{itemize}
+					\item<3-> We could have multiplied way more than two floats
+				\end{itemize}
+			\end{block}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{How to make it better}
+	\talknote<1-5>{Keine Sprungvorhersage mehr}
+	\talknote<1-5>{Komplettes Potential von out of order execution ausnutzen}
+	\talknote<1-5>{Ladelatenzen verstecken}
+	\talknote<1-5>{Leichter zu lesender maschinen-code}
+	\talknote<6>{Klicken!}
+	\begin{onlyenv}<1-5>
+		\begin{columns}[c]
+			\begin{column}{0.45\textwidth}
+				\begin{minted}{c}
+				void mul4(float* vec) {
+					__m128 f=_mm_loadu_ps(vec);
+					f = _mm_mul_ps(f, f);
+					_mm_storeu_ps(vec, f);
+				}
+			\end{minted}
+			\end{column}
+			\begin{column}{0.45\textwidth}
+				\begin{block}[Why is it better?]
+					\begin{itemize}
+						\item<2-> No loops
+						\item<3-> No branches to predict
+						\item<4-> Nice machine code
+						\item<5-> We square all floats \enquote{at once}
+					\end{itemize}
+				\end{block}
+			\end{column}
+		\end{columns}
+	\end{onlyenv}
+	\mode<beamer>{
+	\begin{onlyenv}<6>
+		\hfill\huge\color{accent}\bfseries\href{https://godbolt.org/z/ET5qqerdj}{Or just compile with optimisations}\hfill
+	\end{onlyenv}
+	\begin{onlyenv}<7>
+		\begin{columns}[c]
+			\begin{column}{0.45\textwidth}
+				\begin{minted}{c}
+					void mul4(float* vec) {
+						__m128 f=_mm_loadu_ps(vec);
+						f = _mm_mul_ps(f, f);
+						_mm_storeu_ps(vec, f);
+					}
+				\end{minted}
+			\end{column}
+			\begin{column}{0.50\textwidth}
+				\setlength\fboxsep{1pt}
+				\setlength\fboxrule{2pt}
+				\begin{center}
+					\textcolor{accent}{\fbox{\href{https://www.memedroid.com/memes/detail/1613336}{\includegraphics[width=.5\textwidth]{img/whatarethose.png}}}}
+				\end{center}
+				\begin{itemize}
+					\item \mintinline{c}{__m128}
+					\item \mintinline{c}{_mm_loadu_ps(float*)}
+					\item \mintinline{c}{_mm_mul_ps(__m128, __m128)}
+					\item \mintinline{c}{_mm_store_ps(float*, __m128)}
+				\end{itemize}
+			\end{column}
+		\end{columns}
+	\end{onlyenv}
+}
+\end{frame}
+
+\mode<handout>
+\begin{frame}
+	\frametitle{How to make it better}
+	\centering
+	\huge\color{accent}\bfseries\href{https://godbolt.org/z/ET5qqerdj}{Or just compile with optimisations}
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{How to make it better}
+	\begin{columns}[c]
+		\begin{column}{0.45\textwidth}
+			\begin{minted}{c}
+				void mul4(float* vec) {
+					__m128 f=_mm_loadu_ps(vec);
+					f = _mm_mul_ps(f, f);
+					_mm_storeu_ps(vec, f);
+				}
+			\end{minted}
+		\end{column}
+		\begin{column}{0.50\textwidth}
+			\setlength\fboxsep{1pt}
+			\setlength\fboxrule{2pt}
+			\begin{center}
+				\textcolor{accent}{\fbox{\href{https://www.memedroid.com/memes/detail/1613336}{\includegraphics[width=.5\textwidth]{img/whatarethose.png}}}}
+			\end{center}
+			\begin{itemize}
+				\item \mintinline{c}{__m128}
+				\item \mintinline{c}{_mm_loadu_ps(float*)}
+				\item \mintinline{c}{_mm_mul_ps(__m128, __m128)}
+				\item \mintinline{c}{_mm_store_ps(float*, __m128)}
+			\end{itemize}
+		\end{column}
+	\end{columns}
+\end{frame}
+\mode<all>
+
+\begin{frame}
+	\frametitle[\cite{const}]{Performance}
+	\talknote{DPPS = Dot Product of Packed Single Precision Floating-Point Values}
+	\talknote{VDPPS macht nur etwas mehr}
+	\talknote{micro seconds}
+	\begin{table}[]
+		\begin{tabular}{l||c}
+			\hline
+			\rowcolor{accent!30}
+			\textbf{Description}        & \textbf{Time (in \textmu s)} \\
+			\hline\hline
+			Regular floating point math & 439                          \\
+			SSE dpps instruction        & 181                          \\
+			AVX vdpps instruction       & 103
+		\end{tabular}
+		\caption{Time it takes to computes the dot product of two vectors with a length
+			of 256,000}
+	\end{table}
+	\begin{columns}[c]
+		\begin{column}{0.75\textwidth}
+			\begin{itemize}
+				\item<2-> [\triangleright] SSE: 2.5x speed increase
+				\item<3-> [\triangleright] AVX: \phantom{2.}4x speed increase
+			\end{itemize}
+		\end{column}
+		\begin{column}{0.15\textwidth}
+			\begin{visibleenv}<2->
+				\begin{tikzpicture}
+					\duck[mask=red,cape=red,alien=green,laughing,xscale=-1, scale=.7]
+				\end{tikzpicture}
+			\end{visibleenv}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+\section{Overview}
+\begin{frame}
+	\frametitle[\cite{flynn}]{Forms of computing systems}
+	\talknote{SISD normal (eine CPU)}
+	\talknote{MISD eher theoretisches konzept}
+	\talknote{MIMD normal (mehrere CPUs)}
+	\begin{table}[]
+		\begin{tabular}{l||c|c}
+			\hline
+			\rowcolor{accent!30}
+			                               & \textbf{Single data stream} & \textbf{Multiple data stream}                                                                         \\
+			\hline\hline
+			\textbf{Single instruction}    & SISD                        & \only<2>{\emoji{flying-saucer}}\textcolor<2>{accent}{\textbf<2>{SIMD}}\only<2>{\emoji{flying-saucer}} \\
+			\textbf{Multiple Instructions} & MISD                        & MIMD
+		\end{tabular}
+	\end{table}
+\end{frame}
+
+% \begin{frame}
+% 	\frametitle{History}
+% 	% https://www.researchgate.net/publication/305762983_Performance_and_Scalability_Improvements_for_Discontinuous_Galerkin_Solutions_to_Conservation_Laws_on_Unstructured_Grids/link/5e6bb80092851c6ba7008da2/download
+% 	\begin{itemize}
+% 		\item 1993 P5
+% 		\item 1995 P6
+% 		\item 1997 MMX
+% 		\item 1999 SSE
+% 		\item 2000 SSE2
+% 		\item 2004 SSE3
+% 		\item 2006 SSSE3
+% 		\item 2007 SSSE4.1
+% 		\item 2008 SSSE4.2
+% 		\item 2011 AVX
+% 		\item 2013 AVX2
+% 	\end{itemize}
+% \end{frame}
+
+
+\begin{frame}
+	\frametitle{SIMD Support}
+	\framesubtitle{According to Steam}
+	\talknote{1993 P5}
+	\talknote{1995 P6}
+	\talknote{1997 MMX}
+	\talknote{1999 SSE}
+	\talknote{2000 SSE2}
+	\talknote{2004 SSE3}
+	\talknote{2006 SSSE3}
+	\talknote{2007 SSSE4.1}
+	\talknote{2008 SSSE4.2}
+	\talknote{2011 AVX}
+	\talknote{2013 AVX2}
+	\centering
+	\pgfplotsset{
+		every axis legend/.append style={
+				at={(1.02,0.5)},
+				anchor=west,
+				style={roundednode, fill=accent!3},
+				legend cell align=left,
+			},
+	}
+	\pgfplotsset{width=\textwidth, height=.7\textheight, compat=1.18}
+	\pgfplotstableread[col sep=comma,]{assets/SSE.csv}\ssea
+	\pgfplotstableread[col sep=comma,]{assets/SSE3.csv}\sseb
+	\pgfplotstableread[col sep=comma,]{assets/SSE41.csv}\ssec
+	\pgfplotstableread[col sep=comma,]{assets/SSE42.csv}\ssed
+	\pgfplotstableread[col sep=comma,]{assets/SSE4A.csv}\ssee
+	\pgfplotstableread[col sep=comma,]{assets/AVX.csv}\avxa
+	\pgfplotstableread[col sep=comma,]{assets/AVX2.csv}\avxb
+	\pgfplotstableread[col sep=comma,]{assets/SSSE3.csv}\ssse
+	\href{https://raw.githubusercontent.com/jdegene/steamHWsurvey/master/shs.csv}{
+		\begin{tikzpicture}
+			\begin{axis}[axis background/.style={fill=accent!3},
+				ylabel=Support (in \%), axis line style={rounded corners}, xtick=\empty,
+				ytick=\empty, extra x ticks={0, 86, 173}, extra x tick
+				labels={2008, 2015/16, 2023}]
+				\addplot[color=accent, smooth] table [x=date, y=percentage, col sep=comma, x expr=\coordindex]{\ssea};
+				\addlegendentry{SSE2}
+				\addplot[color=blue, smooth] table [x=date, y=percentage, col sep=comma, x expr=\coordindex]{\sseb};
+				\addlegendentry{SSE3}
+				\addplot[color=green, smooth] table [x=date, y=percentage, col sep=comma, x expr=\coordindex]{\ssec};
+				\addlegendentry{SSE4.1}
+				\addplot[color=maroon, smooth] table [x=date, y=percentage, col sep=comma, x expr=\coordindex]{\ssed};
+				\addlegendentry{SSE4.2}
+				\addplot[color=red, smooth] table [x=date, y=percentage, col sep=comma, x expr=\coordindex]{\ssee};
+				\addlegendentry{SSE4a}
+				\addplot[color=yellow, smooth] table [x=date, y=percentage, col sep=comma, x expr=\coordindex]{\avxa};
+				\addlegendentry{AVX}
+				\addplot[color=orange, smooth] table [x=date, y=percentage, col sep=comma, x expr=\coordindex]{\avxb};
+				\addlegendentry{AVX2}
+				\addplot[color=olive, smooth] table [x=date, y=percentage, col sep=comma, x expr=\coordindex]{\ssse};
+				\addlegendentry{SSSE3}
+			\end{axis}
+		\end{tikzpicture}}
+	\let\thefootnote\relax\footnote{Note that Steam did not start collecting data for
+		all extensions at the date of their release!}
+	\addtocounter{footnote}{-1}
+\end{frame}
+
+
+\section{How to use SIMD}
+\subsection{Overview}
+\begin{frame}
+	\centering
+	\huge\color{accent}\bfseries It's hard
+	\only<2>{\begin{tikzpicture}[overlay, remember picture]
+			\node [draw=none, anchor=south east] at (current page.south east) {\includegraphics{img/whatshesaid.png}};
+		\end{tikzpicture}}
+\end{frame}
+
+\begin{frame}
+	\frametitle{The idea behind SIMD}
+	\talknote{Erweiterung des Befehls und Registersatzes}
+	\centering
+	\begin{onlyenv}<all:-5>%
+		Without SIMD:\\[7mm]
+		\begin{tikzpicture}
+			\node [squarenode] (A1) [] {A\textsubscript1};
+			\node [squarenode] (A2) [below=of A1] {A\textsubscript2};
+			\node [squarenode] (A3) [below=of A2] {A\textsubscript3};
+			\node [squarenode] (A4) [below=of A3] {A\textsubscript4};
+			\node [roundednode, fill=gray!10, node on layer=background] (F) [fit=(A1)(A2)(A3)(A4)] {};
+
+			\node [squarenode, xshift=1.5cm] (B1) [right=of A1] {B\textsubscript1};
+			\node [squarenode, xshift=1.5cm] (B2) [right=of A2] {B\textsubscript2};
+			\node [squarenode, xshift=1.5cm] (B3) [right=of A3] {B\textsubscript3};
+			\node [squarenode, xshift=1.5cm] (B4) [right=of A4] {B\textsubscript4};
+			\node [roundednode, fill=gray!10, node on layer=background] (F2) [fit=(B1)(B2)(B3)(B4)] {};
+
+			\node [squarenode, xshift=1.5cm, visible on=<all:2->] (C1) [right=of B1] {C\textsubscript1};
+			\node [squarenode, xshift=1.5cm, visible on=<all:3->] (C2) [right=of B2] {C\textsubscript2};
+			\node [squarenode, xshift=1.5cm, visible on=<all:4->] (C3) [right=of B3] {C\textsubscript3};
+			\node [squarenode, xshift=1.5cm, visible on=<all:5->] (C4) [right=of B4] {C\textsubscript4};
+			\node [roundednode, fill=gray!10, node on layer=background] (F3) [fit=(C1)(C2)(C3)(C4)] {};
+
+			\node [draw=none] (O) at ($(F)!0.5!(F2)$) {$+$};
+			\node [draw=none] (R) at ($(F2)!0.5!(F3)$) {$=$};
+
+			\foreach \i in {1,...,4}{
+					\draw [arrow, visible on=<all:\the\numexpr \i + 1\relax>, shorten >=3mm,shorten <=3mm] (A\i) to (B\i);
+					\draw [arrow, visible on=<all:\the\numexpr \i + 1\relax>, shorten >=3mm,shorten <=3mm] (B\i) to (C\i);
+				}
+		\end{tikzpicture}
+	\end{onlyenv}%
+	\begin{onlyenv}<all:6->%
+		With SIMD:\\[7mm]
+		\begin{tikzpicture}
+			\node [squarenode] (A1) [] {A\textsubscript1};
+			\node [squarenode] (A2) [below=of A1] {A\textsubscript2};
+			\node [squarenode] (A3) [below=of A2] {A\textsubscript3};
+			\node [squarenode] (A4) [below=of A3] {A\textsubscript4};
+			\node [roundednode, fill=gray!10, node on layer=background] (F) [fit=(A1)(A2)(A3)(A4)] {};
+
+			\node [squarenode, xshift=1.5cm] (B1) [right=of A1] {B\textsubscript1};
+			\node [squarenode, xshift=1.5cm] (B2) [right=of A2] {B\textsubscript2};
+			\node [squarenode, xshift=1.5cm] (B3) [right=of A3] {B\textsubscript3};
+			\node [squarenode, xshift=1.5cm] (B4) [right=of A4] {B\textsubscript4};
+			\node [roundednode, fill=gray!10, node on layer=background] (F2) [fit=(B1)(B2)(B3)(B4)] {};
+
+			\node [squarenode, xshift=1.5cm, visible on=<all:7>] (C1) [right=of B1] {C\textsubscript1};
+			\node [squarenode, xshift=1.5cm, visible on=<all:7>] (C2) [right=of B2] {C\textsubscript2};
+			\node [squarenode, xshift=1.5cm, visible on=<all:7>] (C3) [right=of B3] {C\textsubscript3};
+			\node [squarenode, xshift=1.5cm, visible on=<all:7>] (C4) [right=of B4] {C\textsubscript4};
+			\node [roundednode, fill=gray!10, node on layer=background] (F3) [fit=(C1)(C2)(C3)(C4)] {};
+
+			\node [draw=none] (O) at ($(F)!0.5!(F2)$) {$+$};
+			\node [draw=none] (R) at ($(F2)!0.5!(F3)$) {$=$};
+
+			\foreach \i in {1,...,4}{
+					\draw [arrow, visible on=<all:7>, shorten >=3mm,shorten <=3mm] (A\i) to (B\i);
+					\draw [arrow, visible on=<all:7>, shorten >=3mm,shorten <=3mm] (B\i) to (C\i);
+				}
+		\end{tikzpicture}
+	\end{onlyenv}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Approach}
+	\talknote<1>{RAM ist langsam}
+	\talknote<1>{Cash miss 100-200 Zyklen}
+	\talknote<2>{2: Compiler kann Register Druck hoch halten}
+	\begin{enumerate}
+		\item Operate directly on memory
+	\end{enumerate}
+	\pause
+	\vspace{2mm}
+	\hspace{8.2mm}or
+	\vspace{2mm}
+	\begin{enumerate}
+		\item Load data to registers
+		\item Do as much as possible while it’s in registers
+		\item Store results \ldots
+		      \begin{itemize}
+			      \item into memory
+			      \item in general purpose registers
+		      \end{itemize}
+	\end{enumerate}
+\end{frame}
+
+\begin{frame}
+	\frametitle{SIMD in C++}
+	\framesubtitle{Intrinsics}
+	\talknote{Compiler sieht eine normale Funktion die er normal optimieren kann}
+	\talknote{Intrinsics bilden nicht immer auf nur eine Instruktion ab}
+	\begin{block}[Intrinsics\hfill\color{white!70!accent}In\ldots\ what?]
+		\begin{itemize}
+			\item Usually implemented \enquote{inside} the compiler
+			\item Allow for better optimisations than raw inline assembly
+			\item Intrinsics provide access to instructions that cannot be generated
+			      using the standard constructs
+		\end{itemize}
+	\end{block}
+\end{frame}
+
+\subsection{Data types}
+\begin{frame}
+	\frametitle{Register types}
+	\talknote{xmm Register}
+	\talknote{6 typen, für die CPU nur 2}
+	\talknote{__m128 für register, float für RAM}
+	\begin{columns}[c]
+		\begin{column}{0\textwidth}
+			\begin{tikzpicture}[overlay, remember picture]
+				\node[inline, xshift=1cm, visible on=<2>] (A) {SSE2};
+			\end{tikzpicture}
+		\end{column}
+		\begin{column}{\textwidth}
+			\begin{table}[]
+				\begin{tabular}{l||c|c}
+					\hline
+					\rowcolor{accent!30}
+					                                                            & \textbf{16 Bytes} & \textbf{32 Bytes} \\
+					\hline\hline
+					\textbf{\phantom{32/}32 Bit float}                          & \texttt{__m128}   & \texttt{__m256}   \\
+					\tikz\node[inline](B){\textbf{\phantom{32/}64 Bit double}}; & \texttt{__m128d}  & \texttt{__m256d}  \\
+					\textbf{32/64 Bit integer}                                  & \texttt{__m128i}  & \texttt{__m256i}
+				\end{tabular}
+			\end{table}
+		\end{column}
+	\end{columns}
+	\begin{tikzpicture}[overlay, remember picture]
+		\draw[textarrow, shorten >=3mm,shorten <=3mm, visible on=<2>] (A) to (B.west);
+	\end{tikzpicture}\par
+	\onslide<3>{Note that:
+		\begin{itemize}
+			\item The CPU doesn't distinguish between \mintinline{c}{__m128}, \mintinline{c}{__m128d} and \mintinline{c}{__m128i}
+			      \begin{itemize}
+				      \item This information is only used for type checking
+			      \end{itemize}
+			\item The compiler automatically assigns the values to registers
+			      \begin{itemize}
+				      \item Be aware that there are only 16 (8+8) registers underneath the compiler
+			      \end{itemize}
+		\end{itemize}}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Register types}
+	\framesubtitle{Gotcha!}
+	\talknote{Für unser mental model, intern keinen unterschied}
+	\talknote{Für Instruktionen die auf den niederwertigsten bits arbeiten egal}
+	\begin{columns}[t]
+		\begin{column}{0.45\textwidth}
+			\centering
+			\begin{tikzpicture}
+				\node [roundednode, node on layer=foreground, fill=none, draw=none] (F1) {3.14159265358};
+				\node [roundednode, fit=(F1), fill=white, node on layer=main, fill opacity=0.8] (A) {};
+				\node [draw=none, anchor=south] at (A.north west) {0};
+				\node [draw=none, anchor=south] at (A.north east) {127};
+				\node [draw=none, anchor=center, node on layer=background, yshift=-4mm, visible on=<2->] at (A.center)
+				{\color{red}\fontsize{150}{180}\selectfont\texttimes};
+			\end{tikzpicture}\par
+			\onslide<2->{A SIMD register does not store a single scalar value}
+		\end{column}%
+		\begin{column}{0.45\textwidth}%
+			\centering
+			\begin{tikzpicture}[node distance=2mm]
+				\node [visible on=<3->, roundednode, node on layer=foreground, fill=none] (F1) {3.14};
+				\node [visible on=<3->, roundednode, node on layer=foreground, fill=none] (F2) [right=of F1] {1.59};
+				\node [visible on=<3->, roundednode, node on layer=foreground, fill=none] (F3) [right=of F2] {2.65};
+				\node [visible on=<3->, roundednode, node on layer=foreground, fill=none] (F4) [right=of F3] {3.58};
+				\node [visible on=<3->, roundednode, fit=(F1)(F4), fill=white, node on layer=main, fill opacity=0.8] (A) {};
+				\node [visible on=<3->, draw=none, anchor=south] at (A.north west) {0};
+				\node [visible on=<3->, draw=none, anchor=south] at (A.north east) {127};
+				\node [visible on=<3->, draw=none, anchor=center, node on layer=background,yshift=-3.3mm, visible on=<4->] at (current bounding box.center)
+				{\color{green}\fontsize{130}{156}\selectfont\checkmark};
+			\end{tikzpicture}\par
+			\onslide<4->{but multiple values that are interpreted like a vector.}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+\subsection{Instructions}
+% \begin{frame}
+% 	\frametitle{Casting}
+% 	\framesubtitle{Deutschland sucht die nächste Super-Instruktion}
+% 	\begin{table}[]
+% 		\small
+% 		\begin{tabular}{l||c|c|c}
+% 			\hline
+% 			\rowcolor{accent!30}
+% 			$\downarrow$~To / From~\rightarrow & \texttt{__m128}           & \texttt{__m128d}          & \texttt{__m128i}          \\
+% 			\hline\hline
+% 			\texttt{__m128}                    & \texttimes                & \texttt{_mm_castpd_ps}    & \texttt{_mm_castsi128_ps} \\
+% 			\texttt{__m128d}                   & \texttt{_mm_castpd_pd}    & \texttimes                & \texttt{_mm_castsi128_pd} \\
+% 			\texttt{__m128i}                   & \texttt{_mm_castps_si128} & \texttt{_mm_castpd_si128} & \texttimes
+% 		\end{tabular}
+% 	\end{table}
+% 	\begin{itemize}
+% 		\item Zero overhead (C++ devs love this stuff)
+% 		      \begin{itemize}
+% 			      \item [\triangleright] No \emph{actual} conversion
+% 		      \end{itemize}
+% 	\end{itemize}
+% \end{frame}
+%
+% \begin{frame}
+% 	\frametitle{Converting}
+% 	\begin{table}[]
+% 		\small
+% 		\begin{tabular}{l||c|c|c}
+% 			\hline
+% 			\rowcolor{accent!30}
+% 			$\downarrow$~To / From~\rightarrow & \texttt{__m128}          & \texttt{__m128d}         & \texttt{__m128i}         \\
+% 			\hline\hline
+% 			\texttt{__m128}                    & \texttimes               & \texttt{_mm_cvtpd_ps}    & \texttt{_mm_cvtepi32_ps} \\
+% 			\texttt{__m128d}                   & \texttt{_mm_cvtps_pd}    & \texttimes               & \texttt{_mm_cvtepi32_pd} \\
+% 			\texttt{__m128i}                   & \texttt{_mm_cvtps_epi32} & \texttt{_mm_cvtpd_epi32} & \texttimes
+% 		\end{tabular}
+% 	\end{table}
+% 	\begin{itemize}
+% 		\item When rounding is necesary, the MXCSR register specifies the rounding mode
+% 		      \begin{itemize}
+% 			      \item [\triangleright] See \texttt{_MM_SET_ROUNDING_MODE}
+% 		      \end{itemize}
+% 	\end{itemize}
+% \end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{Loading from Memory}
+	\talknote{Aligned ist schneller}
+	\talknote{Single lane loads}
+	\talknote{Broadcast loads}
+	\talknote{Wenn alles entsprechend ausgerichtet: dereferenzierung}
+	\begin{columns}[c]
+		\begin{column}{0.35\textwidth}
+			We can load \ldots
+			\begin{itemize}
+				\item four values aligned
+				\item four values \tikz\node[inline] (U) {unaligned};
+				\item four values in reverse
+				\item \ldots
+			\end{itemize}
+		\end{column}
+		\begin{column}{0.55\textwidth}
+			\begin{visibleenv}<2->
+				\begin{minted}[escapeinside=||]{c}
+					void mul4(float* vec) {
+						__m128 f = |\tikz\node[inline](C){\_mm\_loadu\_ps(vec)};|;
+						f = _mm_mul_ps(f, f);
+						_mm_storeu_ps(vec, f);
+					}
+				\end{minted}
+			\end{visibleenv}
+		\end{column}
+	\end{columns}
+	\begin{tikzpicture}[remember picture, overlay]
+		\draw [textarrow, visible on=<3>] (U) to [bend left=30] (C);
+	\end{tikzpicture}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{Arithmetic Operations}
+	\framesubtitle{For floats (and doubles)}
+	\talknote{ss: single lane, ps: alles}
+	\talknote{sd, pd: 64 bit float}
+	\talknote{C++ min max in SSE implementiert}
+	\talknote{[a+b, c-d, e+f, g-h]}
+	\talknote{Fused multiply add: (a · b)+c. Genutzt für FLOPs weil zwei operationen}
+	\centering
+	\begin{columns}[c]
+		\begin{column}{0.50\textwidth}
+			\texttt{_mm_\fcolorbox{blue}{blue!5}{\phantom{sss}}_\fcolorbox{red}{red!5}{\phantom{ss}}}
+			\begin{visibleenv}<3->
+				$ = \begin{cases}
+						\texttt{_mm_add_ps}                         \\
+						\tikz\node[inline](U){\texttt{_mm_mul_ps}}; \\
+						\texttt{_mm_min_ss}                         \\
+						\ldots
+					\end{cases}$
+			\end{visibleenv}
+		\end{column}
+		\begin{column}{0.50\textwidth}
+			\begin{visibleenv}<4->
+				\begin{minted}[escapeinside=||]{c}
+					void mul4(float* vec) {
+						__m128 f = _mm_loadu_ps(vec);
+						f = |\tikz\node[inline](C){\_mm\_mul\_ps(f, f)};|;
+						_mm_storeu_ps(vec, f);
+					}
+				\end{minted}
+			\end{visibleenv}
+		\end{column}
+	\end{columns}
+	\begin{visibleenv}<2->
+		\begin{columns}[c]
+			\begin{column}{0.35\textwidth}
+				\begin{beamerbox}{blue}{}
+					\begin{columns}[T]
+						\begin{column}{0.45\textwidth}
+							\begin{itemize}
+								\item add
+								\item sub
+								\item mul
+								\item div
+							\end{itemize}
+						\end{column}
+						\begin{column}{0.45\textwidth}
+							\begin{itemize}
+								\item sqrt
+								\item min
+								\item max
+								\item \ldots
+							\end{itemize}
+						\end{column}
+					\end{columns}
+				\end{beamerbox}
+			\end{column}
+			\begin{column}{0.35\textwidth}
+				\begin{beamerbox}{red}{}
+					\begin{columns}[T]
+						\begin{column}{0.45\textwidth}
+							\begin{itemize}
+								\item ss
+								\item ps
+							\end{itemize}
+						\end{column}
+						\begin{column}{0.45\textwidth}
+							\begin{itemize}
+								\item sd
+								\item pd
+							\end{itemize}
+						\end{column}
+					\end{columns}
+				\end{beamerbox}
+			\end{column}
+		\end{columns}
+	\end{visibleenv}
+	\begin{tikzpicture}[remember picture, overlay]
+		\draw [textarrow, visible on=<5->] (U.east) to [bend left=20] (C);
+	\end{tikzpicture}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Arithmetic Operations}
+	\framesubtitle{For integers}
+	\talknote{adds: Sättigungs arithmetik. Overflow, oder max oder min}
+	Well, it's the same. Just append \texttt{_epi8} or \texttt{_epi16}
+	\talknote{16 chars: 100+100=127}
+	\talknote{kein div}
+	\talknote{mul [a,b,c,d] [e,f,g,h] = [a*e, c*g]}
+	\talknote{besser SSE4.1}
+	\begin{center}%
+		\texttt{_mm_\fcolorbox{blue}{blue!5}{\phantom{sss}}_\fcolorbox{red}{red!5}{\phantom{ss}}}
+	\end{center}
+	\begin{columns}[c]
+		\begin{column}{0.35\textwidth}
+			\begin{beamerbox}{blue}{}
+				\begin{columns}[T]
+					\begin{column}{0.45\textwidth}
+						\begin{itemize}
+							\item add
+							\item sub
+							\item mul
+							\item avg
+						\end{itemize}
+					\end{column}
+					\begin{column}{0.45\textwidth}
+						\begin{itemize}
+							\item min
+							\item max
+							\item \ldots
+						\end{itemize}
+					\end{column}
+				\end{columns}
+			\end{beamerbox}
+		\end{column}
+		\begin{column}{0.35\textwidth}
+			\begin{beamerbox}{red}{}
+				\begin{itemize}
+					\item epi8
+					\item epi16
+					\item epu8
+				\end{itemize}
+			\end{beamerbox}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{Storing to Memory}
+	\talknote{higher lower}
+	\begin{columns}[c]
+		\begin{column}{0.35\textwidth}
+			We can store \ldots
+			\begin{itemize}
+				\item four values aligned
+				\item four values \tikz\node[inline] (U) {unaligned};
+				\item four values in reverse
+				\item \ldots
+			\end{itemize}
+		\end{column}
+		\begin{column}{0.55\textwidth}
+			\begin{visibleenv}<2->
+				\begin{minted}[escapeinside=||]{c}
+					void mul4(float* vec) {
+						__m128 f = _mm_loadu_ps(vec);
+						f = _mm_mul_ps(f, f);
+						|\tikz\node[inline](C){\_mm\_storeu\_ps(vec, f)};|;
+					}
+				\end{minted}
+			\end{visibleenv}
+		\end{column}
+	\end{columns}
+	\begin{tikzpicture}[remember picture, overlay]
+		\draw [textarrow, visible on=<3>] (U.east) to [bend left=20] (C);
+	\end{tikzpicture}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Miscellaneous}
+	\talknote{_may_i_use_cpu_feature Funktion}
+	\begin{columns}[c]
+		\begin{column}{0.45\textwidth}
+			\begin{visibleenv}<2->
+				\begin{block}[Copy values to general purpose registers]
+					\begin{description}
+						\item [\mintinline{c}{_m128i} $\rightarrow$ \mintinline{c}{int32_t}]
+						      \texttt{_mm_cvtsi128_si32}
+						\item [\mintinline{c}{int32_t} $\rightarrow$ \mintinline{c}{_m128i}]
+						      \texttt{_mm_cvtsi32_si128}
+						\item [\mintinline{c}{_m128} $\rightarrow$ \mintinline{c}{float}]
+						      \texttt{_mm_cvtss_f32}
+					\end{description}
+				\end{block}
+			\end{visibleenv}
+		\end{column}
+		\begin{column}{0.45\textwidth}
+			\begin{visibleenv}<3->
+				\begin{block}[Cryptography]
+					\begin{itemize}
+						\item AES de- and encryption
+						\item SHA computation
+					\end{itemize}
+				\end{block}
+			\end{visibleenv}
+			\begin{visibleenv}<4->
+				\begin{block}[String manipulation (SSE 4.2)]
+					\begin{itemize}
+						\item Compare strings with \ldots
+						      \begin{itemize}
+							      \item known length
+							      \item unknown length
+						      \end{itemize}
+					\end{itemize}
+				\end{block}
+			\end{visibleenv}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+\subsection{Example}
+\begin{frame}[fragile]
+	\frametitle[\href{https://godbolt.org/z/T3aPb6Trj}{Click for code}]{More adding}
+	\talknote{Beliebig viele floats paarweise addieren}
+	\pdfpcnote{1: die Anzahl an vektorisierbaren elementen bestimmen}
+	\talknote<6>{Auch schleifen. Aber wesentlich kürzer < 4}
+	\mode<beamer>
+	\begin{onlyenv}<+>
+		\begin{minted}[fontsize=\footnotesize]{cpp}
+			float* add(const float* a, const float* b, size_t size) {
+				float* result = new float[size];
+
+				unsigned i = 0;
+				for (; i <                            ; i +=  ) {
+
+
+
+
+				}
+
+
+				return result;
+			}
+		\end{minted}
+	\end{onlyenv}
+	\begin{onlyenv}<+>
+		\begin{minted}[fontsize=\footnotesize]{cpp}
+			float* add(const float* a, const float* b, size_t size) {
+				float* result = new float[size];
+				const auto numof_vectorizable_elements = size - (size % 4);
+				unsigned i = 0;
+				for (; i < numof_vectorizable_elements; i += 4) {
+
+
+
+
+				}
+
+
+				return result;
+			}
+		\end{minted}
+	\end{onlyenv}
+	\begin{onlyenv}<+>
+		\begin{minted}[fontsize=\footnotesize]{cpp}
+			float* add(const float* a, const float* b, size_t size) {
+				float* result = new float[size];
+				const auto numof_vectorizable_elements = size - (size % 4);
+				unsigned i = 0;
+				for (; i < numof_vectorizable_elements; i += 4) {
+					__m128 a_reg = _mm_loadu_ps(a + i);
+					__m128 b_reg = _mm_loadu_ps(b + i);
+
+
+				}
+
+
+				return result;
+			}
+		\end{minted}
+	\end{onlyenv}
+	\begin{onlyenv}<+>
+		\begin{minted}[fontsize=\footnotesize]{cpp}
+			float* add(const float* a, const float* b, size_t size) {
+				float* result = new float[size];
+				const auto numof_vectorizable_elements = size - (size % 4);
+				unsigned i = 0;
+				for (; i < numof_vectorizable_elements; i += 4) {
+					__m128 a_reg = _mm_loadu_ps(a + i);
+					__m128 b_reg = _mm_loadu_ps(b + i);
+					__m128 sum = _mm_add_ps(a_reg, b_reg);
+
+				}
+
+
+				return result;
+			}
+		\end{minted}
+	\end{onlyenv}
+	\begin{onlyenv}<+>
+		\begin{minted}[fontsize=\footnotesize]{cpp}
+			float* add(const float* a, const float* b, size_t size) {
+				float* result = new float[size];
+				const auto numof_vectorizable_elements = size - (size % 4);
+				unsigned i = 0;
+				for (; i < numof_vectorizable_elements; i += 4) {
+					__m128 a_reg = _mm_loadu_ps(a + i);
+					__m128 b_reg = _mm_loadu_ps(b + i);
+					__m128 sum = _mm_add_ps(a_reg, b_reg);
+					_mm_storeu_ps(result + i, sum);
+				}
+
+
+				return result;
+			}
+		\end{minted}
+	\end{onlyenv}
+	\mode<all>
+	\begin{onlyenv}<+>
+		\begin{minted}[fontsize=\footnotesize]{cpp}
+			float* add(const float* a, const float* b, size_t size) {
+				float* result = new float[size];
+				const auto numof_vectorizable_elements = size - (size % 4);
+				unsigned i = 0;
+				for (; i < numof_vectorizable_elements; i += 4) {
+					__m128 a_reg = _mm_loadu_ps(a + i);
+					__m128 b_reg = _mm_loadu_ps(b + i);
+					__m128 sum = _mm_add_ps(a_reg, b_reg);
+					_mm_storeu_ps(result + i, sum);
+				}
+				for (; i < size; ++i)
+					result[i] = a[i] + b[i];
+				return result;
+			}
+		\end{minted}
+	\end{onlyenv}
+\end{frame}
+
+\section{Summary}
+\begin{frame}
+	\frametitle{Should you even care?}
+	\begin{columns}[c]
+		\begin{column}{0.65\textwidth}
+			You shouldn't if \ldots
+			\begin{itemize}
+				\item you don't write performance sensitive code
+				\item you're code is not CPU bound
+				\item if most of the math you do is implemented in libraries
+				\item if your favourite language does not support SIMD
+			\end{itemize}
+		\end{column}
+		\begin{column}{0.25\textwidth}
+			\only<2>{\begin{tikzpicture}
+					\chicken[body=accent, graduate=black, tassel=red, speech={\small Don't}]
+				\end{tikzpicture}}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+\begin{frame}
+	\frametitle{What I didn't cover}
+	\begin{columns}[c]
+		\begin{column}{0.45\textwidth}
+			\begin{visibleenv}<2->
+				\begin{block}[Instructions]
+					\begin{itemize}
+						\item Casting
+						\item Converting
+						\item Comparing
+						\item Shuffling
+						\item Shifting
+						\item Logic operations
+						\item Bitwise operations
+						\item Prefetching
+					\end{itemize}
+				\end{block}
+			\end{visibleenv}
+		\end{column}
+		\begin{column}{0.45\textwidth}
+			\begin{visibleenv}<3->
+				\begin{block}[Libraries]
+					\begin{itemize}
+						\item std::experimental::simd
+						\item Eigen
+						\item DirectXMath
+					\end{itemize}
+				\end{block}
+			\end{visibleenv}
+			\begin{visibleenv}<4->
+				\begin{beamerbox}{green}{}
+					\centering
+					\begin{tikzpicture}
+						\koala[speech={A lot}, umbrellaclosed=blue]
+					\end{tikzpicture}
+				\end{beamerbox}
+			\end{visibleenv}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+\section{References}
+\begin{frame}[allowframebreaks]
+	\frametitle{References}
+	\printbibliography
+\end{frame}
+\end{document}
