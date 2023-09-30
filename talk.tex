@@ -45,9 +45,6 @@
 \section{Motivation}
 \begin{frame}[fragile]
 	\frametitle{How not to do it}
-	\talknote{Sprungvorhersage ein mal falsch (25\%)}
-	\talknote{Rufen wir das oft auf sind 25\% signifikant}
-	\talknote{Wir hätten 4 oder 8 floats multiplizieren können}
 	\begin{columns}[c]
 		\begin{column}{0.45\textwidth}
 			\begin{minted}{c}
@@ -75,11 +72,6 @@
 
 \begin{frame}[fragile]
 	\frametitle{How to make it better}
-	\talknote<1-5>{Keine Sprungvorhersage mehr}
-	\talknote<1-5>{Komplettes Potential von out of order execution ausnutzen}
-	\talknote<1-5>{Ladelatenzen verstecken}
-	\talknote<1-5>{Leichter zu lesender maschinen-code}
-	\talknote<6>{Klicken!}
 	\begin{onlyenv}<1-5>
 		\begin{columns}[c]
 			\begin{column}{0.45\textwidth}
@@ -173,9 +165,6 @@
 
 \begin{frame}
 	\frametitle[\cite{const}]{Performance}
-	\talknote{DPPS = Dot Product of Packed Single Precision Floating-Point Values}
-	\talknote{VDPPS macht nur etwas mehr}
-	\talknote{micro seconds}
 	\begin{table}[]
 		\begin{tabular}{l||c}
 			\hline
@@ -209,9 +198,6 @@
 \section{Overview}
 \begin{frame}
 	\frametitle[\cite{flynn}]{Forms of computing systems}
-	\talknote{SISD normal (eine CPU)}
-	\talknote{MISD eher theoretisches konzept}
-	\talknote{MIMD normal (mehrere CPUs)}
 	\begin{table}[]
 		\begin{tabular}{l||c|c}
 			\hline
@@ -246,17 +232,6 @@
 \begin{frame}
 	\frametitle{SIMD Support}
 	\framesubtitle{According to Steam}
-	\talknote{1993 P5}
-	\talknote{1995 P6}
-	\talknote{1997 MMX}
-	\talknote{1999 SSE}
-	\talknote{2000 SSE2}
-	\talknote{2004 SSE3}
-	\talknote{2006 SSSE3}
-	\talknote{2007 SSSE4.1}
-	\talknote{2008 SSSE4.2}
-	\talknote{2011 AVX}
-	\talknote{2013 AVX2}
 	\centering
 	\pgfplotsset{
 		every axis legend/.append style={
@@ -317,7 +292,6 @@
 
 \begin{frame}
 	\frametitle{The idea behind SIMD}
-	\talknote{Erweiterung des Befehls und Registersatzes}
 	\centering
 	\begin{onlyenv}<all:-5>%
 		Without SIMD:\\[7mm]
@@ -383,9 +357,6 @@
 
 \begin{frame}
 	\frametitle{Approach}
-	\talknote<1>{RAM ist langsam}
-	\talknote<1>{Cash miss 100-200 Zyklen}
-	\talknote<2>{2: Compiler kann Register Druck hoch halten}
 	\begin{enumerate}
 		\item Operate directly on memory
 	\end{enumerate}
@@ -407,8 +378,6 @@
 \begin{frame}
 	\frametitle{SIMD in C++}
 	\framesubtitle{Intrinsics}
-	\talknote{Compiler sieht eine normale Funktion die er normal optimieren kann}
-	\talknote{Intrinsics bilden nicht immer auf nur eine Instruktion ab}
 	\begin{block}[Intrinsics\hfill\color{white!70!accent}In\ldots\ what?]
 		\begin{itemize}
 			\item Usually implemented \enquote{inside} the compiler
@@ -422,9 +391,6 @@
 \subsection{Data types}
 \begin{frame}
 	\frametitle{Register types}
-	\talknote{xmm Register}
-	\talknote{6 typen, für die CPU nur 2}
-	\talknote{__m128 für register, float für RAM}
 	\begin{columns}[c]
 		\begin{column}{0\textwidth}
 			\begin{tikzpicture}[overlay, remember picture]
@@ -464,8 +430,6 @@
 \begin{frame}
 	\frametitle{Register types}
 	\framesubtitle{Gotcha!}
-	\talknote{Für unser mental model, intern keinen unterschied}
-	\talknote{Für Instruktionen die auf den niederwertigsten bits arbeiten egal}
 	\begin{columns}[t]
 		\begin{column}{0.45\textwidth}
 			\centering
@@ -545,10 +509,6 @@
 
 \begin{frame}[fragile]
 	\frametitle{Loading from Memory}
-	\talknote{Aligned ist schneller}
-	\talknote{Single lane loads}
-	\talknote{Broadcast loads}
-	\talknote{Wenn alles entsprechend ausgerichtet: dereferenzierung}
 	\begin{columns}[c]
 		\begin{column}{0.35\textwidth}
 			We can load \ldots
@@ -579,11 +539,6 @@
 \begin{frame}[fragile]
 	\frametitle{Arithmetic Operations}
 	\framesubtitle{For floats (and doubles)}
-	\talknote{ss: single lane, ps: alles}
-	\talknote{sd, pd: 64 bit float}
-	\talknote{C++ min max in SSE implementiert}
-	\talknote{[a+b, c-d, e+f, g-h]}
-	\talknote{Fused multiply add: (a · b)+c. Genutzt für FLOPs weil zwei operationen}
 	\centering
 	\begin{columns}[c]
 		\begin{column}{0.50\textwidth}
@@ -661,12 +616,6 @@
 \begin{frame}
 	\frametitle{Arithmetic Operations}
 	\framesubtitle{For integers}
-	\talknote{adds: Sättigungs arithmetik. Overflow, oder max oder min}
-	Well, it's the same. Just append \texttt{_epi8} or \texttt{_epi16}
-	\talknote{16 chars: 100+100=127}
-	\talknote{kein div}
-	\talknote{mul [a,b,c,d] [e,f,g,h] = [a*e, c*g]}
-	\talknote{besser SSE4.1}
 	\begin{center}%
 		\texttt{_mm_\fcolorbox{blue}{blue!5}{\phantom{sss}}_\fcolorbox{red}{red!5}{\phantom{ss}}}
 	\end{center}
@@ -706,7 +655,6 @@
 
 \begin{frame}[fragile]
 	\frametitle{Storing to Memory}
-	\talknote{higher lower}
 	\begin{columns}[c]
 		\begin{column}{0.35\textwidth}
 			We can store \ldots
@@ -736,7 +684,6 @@
 
 \begin{frame}
 	\frametitle{Miscellaneous}
-	\talknote{_may_i_use_cpu_feature Funktion}
 	\begin{columns}[c]
 		\begin{column}{0.45\textwidth}
 			\begin{visibleenv}<2->
@@ -779,9 +726,6 @@
 \subsection{Example}
 \begin{frame}[fragile]
 	\frametitle[\href{https://godbolt.org/z/T3aPb6Trj}{Click for code}]{More adding}
-	\talknote{Beliebig viele floats paarweise addieren}
-	\pdfpcnote{1: die Anzahl an vektorisierbaren elementen bestimmen}
-	\talknote<6>{Auch schleifen. Aber wesentlich kürzer < 4}
 	\mode<beamer>
 	\begin{onlyenv}<+>
 		\begin{minted}[fontsize=\footnotesize]{cpp}
