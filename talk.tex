@@ -29,7 +29,7 @@
 	numbers=none,
 	frame=none
 }
-\usemintedstyle{stata}
+\usemintedstyle{bw}
 
 \title[SIMD]{SIMD}
 \author[Lukas Pietzschmann]{Lukas Pietzschmann}
@@ -245,7 +245,7 @@
 				legend cell align=left,
 			},
 	}
-	\pgfplotsset{width=\textwidth, height=.7\textheight, compat=1.18}
+	\pgfplotsset{width=.7\textwidth, height=.7\textheight, compat=1.18}
 	\pgfplotstableread[col sep=comma,]{assets/SSE.csv}\ssea
 	\pgfplotstableread[col sep=comma,]{assets/SSE3.csv}\sseb
 	\pgfplotstableread[col sep=comma,]{assets/SSE41.csv}\ssec
